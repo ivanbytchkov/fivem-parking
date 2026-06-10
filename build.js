@@ -43,7 +43,6 @@ function generateManifest() {
         addField(lines, "author", pkg.author);
         addField(lines, "version", pkg.version);
         addField(lines, "repository", pkg.repository?.url);
-        addField(lines, "license", pkg.license);
         addField(lines, "node_version", MANIFEST_DEFAULTS.node_version);
 
         addTable(lines, "shared_scripts", MANIFEST_DEFAULTS.shared_scripts);
