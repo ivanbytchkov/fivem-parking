@@ -1,5 +1,5 @@
 import { onClientCallback } from "@overextended/ox_lib/server";
-import { getPlayerLicense, notify } from "./utils";
+import { Config, getPlayerLicense, notify } from "./utils";
 import "./commands";
 import { getVehicleByPlate, getOwnedVehicles, resetOutsideVehicles, setVehicleStatus } from "./db";
 import { garage } from "./garage/class";
@@ -11,7 +11,6 @@ on("onResourceStart", async (resourceName: string) => {
 });
 
 const cooldowns = new Set<number>();
-const COOLDOWN_MS = 5000;
 
 on("playerDropped", () => {
         const src = source;
@@ -23,7 +22,7 @@ on("playerDropped", () => {
 function checkCooldown(src: number): boolean {
         if (cooldowns.has(src)) return false;
         cooldowns.add(src);
-        setTimeout(() => cooldowns.delete(src), COOLDOWN_MS);
+        setTimeout(() => cooldowns.delete(src), Config.Cooldown);
         return true;
 }
 

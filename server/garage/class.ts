@@ -1,7 +1,7 @@
 import * as Cfx from "@nativewrappers/fivem";
 import { triggerClientCallback } from "@overextended/ox_lib/server";
 import { Config, getArea, getPlayerDisplayName, getPlayerLicense, isValidModelName, isValidPlate, notify, sendLog } from "../utils";
-import { getVehicle, getVehicleByPlate, getOwnedVehicles, plateExists, setVehicleStatus, setVehicleStatusAtomic, insertVehicle, deleteVehicle, Vehicle, VehicleStatus } from "../db";
+import { getVehicle, getVehicleByPlate, getOwnedVehicles, countOwnedVehicles, plateExists, setVehicleStatus, setVehicleStatusAtomic, insertVehicle, updateVehicleType, deleteVehicle, Vehicle, VehicleStatus } from "../db";
 
 const PLATE_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
 
@@ -34,8 +34,12 @@ export class Garage {
                         const plate = Array.from({ length: 8 }, () => PLATE_CHARS[Math.floor(Math.random() * PLATE_CHARS.length)]).join("");
                         if (!(await plateExists(plate))) return plate;
                 }
-                const base = Array.from({ length: 6 }, () => PLATE_CHARS[Math.floor(Math.random() * PLATE_CHARS.length)]).join("");
-                return (base + Date.now().toString(36).slice(-2)).toUpperCase().slice(0, 8);
+                for (let i = 0; i < 10; i++) {
+                        const base = Array.from({ length: 6 }, () => PLATE_CHARS[Math.floor(Math.random() * PLATE_CHARS.length)]).join("");
+                        const plate = (base + Date.now().toString(36).slice(-2)).toUpperCase().slice(0, 8);
+                        if (!(await plateExists(plate))) return plate;
+                }
+                throw new Error("Failed to generate a unique plate after 20 attempts.");
         }
 
         public async listVehicles(source: number) {
@@ -96,10 +100,12 @@ export class Garage {
                 }
 
                 // Add your inventory check here before deducting (Config.Garage.StoreCost is the amount).
-                // Example: if (exports.ox_inventory.GetItemCount(source, "money") < Config.Garage.StoreCost) { ... }
-
                 // Add your money deduction here.
-                // Example: exports.ox_inventory.RemoveItem(source, "money", Config.Garage.StoreCost)
+
+                const vehicleType = GetVehicleType(entity);
+                if (vehicleType && vehicleType !== vehicle.type) {
+                        await updateVehicleType(vehicle.id, vehicleType);
+                }
 
                 const parked = await setVehicleStatusAtomic(vehicle.id, "stored", "outside");
                 if (!parked) {
@@ -164,7 +170,7 @@ export class Garage {
                 const spawnX = coords[0] + Math.sin(-rad) * 5;
                 const spawnY = coords[1] + Math.cos(-rad) * 5;
 
-                const entity = CreateVehicleServerSetter(GetHashKey(vehicle.model), "automobile", spawnX, spawnY, coords[2] + 1, heading);
+                const entity = CreateVehicleServerSetter(GetHashKey(vehicle.model), vehicle.type || "automobile", spawnX, spawnY, coords[2] + 1, heading);
                 if (!entity) {
                         await setVehicleStatus(vehicleId, "stored");
                         this.updateCacheStatus(license, vehicleId, "stored");
@@ -226,6 +232,9 @@ export class Garage {
                         return false;
                 }
 
+                // Add your inventory check here before deducting (Config.Impound.Cost is the amount).
+                // Add your money deduction here.
+
                 const returned = await setVehicleStatusAtomic(vehicleId, "stored", "impound");
                 if (!returned) {
                         notify(source, "Vehicle is not impounded!", "error");
@@ -260,8 +269,13 @@ export class Garage {
                         return false;
                 }
 
+                if (Config.Garage.MaxVehicles > 0 && (await countOwnedVehicles(targetLicense)) >= Config.Garage.MaxVehicles) {
+                        notify(source, "This player has reached the maximum number of vehicles.", "error");
+                        return false;
+                }
+
                 const plate = await this.generateUniquePlate();
-                const vehicleId = await insertVehicle(plate, targetLicense, args.model, "stored");
+                const vehicleId = await insertVehicle(plate, targetLicense, args.model);
                 if (!vehicleId) {
                         notify(source, "Failed to give vehicle.", "error");
                         return false;
@@ -317,6 +331,11 @@ export class Garage {
                         return false;
                 }
 
+                if (Config.Garage.MaxVehicles > 0 && (await countOwnedVehicles(license)) >= Config.Garage.MaxVehicles) {
+                        notify(source, "You have reached the maximum number of vehicles.", "error");
+                        return false;
+                }
+
                 const ped = GetPlayerPed(source);
                 if (ped === 0) {
                         notify(source, "Could not find your character.", "error");
@@ -338,17 +357,24 @@ export class Garage {
 
                 SetVehicleNumberPlateText(entity, plate);
 
-                const vehicleId = await insertVehicle(plate, license, args.model, "outside");
-                if (!vehicleId) {
+                let waited = 0;
+                while (!DoesEntityExist(entity) && waited < 3000) {
+                        await Cfx.Delay(50);
+                        waited += 50;
+                }
+
+                if (!DoesEntityExist(entity)) {
                         DeleteEntity(entity);
                         notify(source, "Failed to spawn the vehicle.", "error");
                         return false;
                 }
 
-                let waited = 0;
-                while (!DoesEntityExist(entity) && waited < 3000) {
-                        await Cfx.Delay(50);
-                        waited += 50;
+                const vehicleType = GetVehicleType(entity) || "automobile";
+                const vehicleId = await insertVehicle(plate, license, args.model, vehicleType, "outside");
+                if (!vehicleId) {
+                        DeleteEntity(entity);
+                        notify(source, "Failed to spawn the vehicle.", "error");
+                        return false;
                 }
 
                 this.spawnedEntities.set(entity, vehicleId);
@@ -380,7 +406,7 @@ export class Garage {
                 }
 
                 const targetName = getPlayerDisplayName(args.playerId);
-                triggerClientCallback("fivem-parking:client:listVehicles", source, vehicles, `${targetName}"s Vehicles`, true);
+                triggerClientCallback("fivem-parking:client:listVehicles", source, vehicles, `${targetName}'s Vehicles`, true);
                 await sendLog(`${getPlayerDisplayName(source)} (${source}) viewed vehicles for ${targetName} (${args.playerId}).`);
 
                 return true;

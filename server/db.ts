@@ -5,6 +5,7 @@ export type Vehicle = {
         plate: string;
         owner: string;
         model: string;
+        type: string;
         stored: VehicleStatus;
 };
 
@@ -18,13 +19,13 @@ const insert = (sql: string, params: unknown[] = []): Promise<number> => new Pro
 
 const update = (sql: string, params: unknown[] = []): Promise<number> => new Promise((resolve, reject) => ox.update(sql, params, (result: number | null) => result !== null ? resolve(result) : reject(new Error(`Update returned null: ${sql}`))));
 
-export const getVehicle = (id: number) => single<Vehicle>(`SELECT id, plate, owner, model, stored FROM parking_vehicles WHERE id = ? LIMIT 1`, [id]);
+export const getVehicle = (id: number) => single<Vehicle>(`SELECT id, plate, owner, model, type, stored FROM parking_vehicles WHERE id = ? LIMIT 1`, [id]);
 
-export const getVehicleByPlate = (plate: string) => single<Vehicle>(`$SELECT id, plate, owner, model, stored FROM parking_vehicles WHERE plate = ? LIMIT 1`, [plate]);
+export const getVehicleByPlate = (plate: string) => single<Vehicle>(`SELECT id, plate, owner, model, type, stored FROM parking_vehicles WHERE plate = ? LIMIT 1`, [plate]);
 
 export const plateExists = async (plate: string) => (await single<{ id: number }>("SELECT id FROM parking_vehicles WHERE plate = ? LIMIT 1", [plate])) !== null;
 
-export const getOwnedVehicles = (owner: string) => query<Vehicle>(`SELECT id, plate, owner, model, stored FROM parking_vehicles WHERE owner = ? ORDER BY id ASC`, [owner]);
+export const getOwnedVehicles = (owner: string) => query<Vehicle>(`SELECT id, plate, owner, model, type, stored FROM parking_vehicles WHERE owner = ? ORDER BY id ASC`, [owner]);
 
 export const setVehicleStatus = async (id: number, status: VehicleStatus) => (await update("UPDATE parking_vehicles SET stored = ? WHERE id = ?", [status, id])) > 0;
 
@@ -32,6 +33,10 @@ export const setVehicleStatusAtomic = async (id: number, newStatus: VehicleStatu
 
 export const resetOutsideVehicles = () => update("UPDATE parking_vehicles SET stored = 'stored' WHERE stored = 'outside'");
 
-export const insertVehicle = (plate: string, owner: string, model: string, stored: VehicleStatus = "stored") => insert("INSERT INTO parking_vehicles (plate, owner, model, stored) VALUES (?, ?, ?, ?)", [plate, owner, model, stored]);
+export const insertVehicle = (plate: string, owner: string, model: string, type: string = "automobile", stored: VehicleStatus = "stored") => insert("INSERT INTO parking_vehicles (plate, owner, model, type, stored) VALUES (?, ?, ?, ?, ?)", [plate, owner, model, type, stored]);
+
+export const updateVehicleType = async (id: number, type: string) => (await update("UPDATE parking_vehicles SET type = ? WHERE id = ?", [type, id])) > 0;
+
+export const countOwnedVehicles = async (owner: string) => (await single<{ count: number }>("SELECT COUNT(*) as count FROM parking_vehicles WHERE owner = ?", [owner]))?.count ?? 0;
 
 export const deleteVehicle = async (plate: string) => (await update("DELETE FROM parking_vehicles WHERE plate = ?", [plate])) > 0;

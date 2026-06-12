@@ -15,7 +15,6 @@
         "dependencies": {
                 "@nativewrappers/fivem": "^0.0.90",
                 "@nativewrappers/server": "^0.0.90",
-                "node-fetch": "^3.3.2",
                 "@overextended/ox_lib": "latest"
         },
         "devDependencies": {

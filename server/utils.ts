@@ -1,4 +1,3 @@
-import fetch from "node-fetch";
 import type Raw from "../../static/config.json";
 
 export type Config = typeof Raw;

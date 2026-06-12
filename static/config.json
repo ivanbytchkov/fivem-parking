@@ -1,7 +1,8 @@
 {
         "Garage": {
                 "StoreCost": 300,
-                "RetrieveCost": 500
+                "RetrieveCost": 500,
+                "MaxVehicles": 0
         },
         "Impound": {
                 "Cost": 1000,
@@ -14,6 +15,7 @@
                         }
                 ]
         },
+        "Cooldown": 5000,
         "Group": "group.staff:1",
         "Webhook": "https://support.discord.com/hc/en-us/articles/228383668-Intro-to-Webhooks"
 }

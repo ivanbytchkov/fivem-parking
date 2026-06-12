@@ -1,4 +1,4 @@
-import lib, { onServerCallback, triggerServerCallback } from "@overextended/ox_lib/client";
+import { registerContext, showContext, onServerCallback, triggerServerCallback } from "@overextended/ox_lib/client";
 
 type Vehicle = { id: number; plate: string; model: string; stored: string | null };
 
@@ -23,11 +23,11 @@ onServerCallback("fivem-parking:client:listVehicles", (vehicles: Vehicle[], titl
                 };
         });
 
-        lib.registerContext({
+        registerContext({
                 id: "fivem_parking_vehicles",
                 title: title ?? "Your Vehicles",
                 options,
         });
 
-        lib.showContext("fivem_parking_vehicles");
+        showContext("fivem_parking_vehicles");
 });
